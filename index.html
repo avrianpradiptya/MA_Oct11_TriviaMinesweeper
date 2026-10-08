@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guess & Survive: The Classroom Challenge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #193772;
+            touch-action: manipulation;
+        }
+
+        .ms-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 36px);
+            grid-template-rows: repeat(9, 36px);
+            gap: 2px;
+            background-color: #9ca3af;
+            padding: 4px;
+            border-radius: 8px;
+            border: 4px solid #6b7280;
+            margin: 0 auto;
+            width: max-content;
+        }
+
+        @media (max-width: 600px) {
+            .ms-grid {
+                grid-template-columns: repeat(9, 30px);
+                grid-template-rows: repeat(9, 30px);
+            }
+        }
+
+        .ms-cell {
+            width: 100%;
+            height: 100%;
+            background-color: #d1d5db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            user-select: none;
+            border-top: 3px solid #f3f4f6;
+            border-left: 3px solid #f3f4f6;
+            border-right: 3px solid #9ca3af;
+            border-bottom: 3px solid #9ca3af;
+        }
+
+        .ms-cell:active:not(.revealed):not(.flagged) {
+            border: 1px solid #9ca3af;
+            background-color: #e5e7eb;
+        }
+
+        .ms-cell.revealed {
+            background-color: #e5e7eb;
+            border: 1px solid #9ca3af;
+            cursor: default;
+        }
+
+        .ms-cell.flagged {
+            cursor: help;
+        }
+
+        /* Number Colors */
+        .c-1 { color: #2563eb; }
+        .c-2 { color: #16a34a; }
+        .c-3 { color: #dc2626; }
+        .c-4 { color: #9333ea; }
+        .c-5 { color: #991b1b; }
+        .c-6 { color: #0d9488; }
+        .c-7 { color: #000000; }
+        .c-8 { color: #4b5563; }
+
+        /* Scene Transitions */
+        .scene {
+            display: none;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+        .scene.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-gray-800 flex flex-col relative overflow-x-hidden">
+
+    <header class="bg-indigo-600 text-white p-4 shadow-md text-center">
+        <h1 class="text-3xl font-extrabold tracking-tight">Guess & Survive</h1>
+        <p class="text-sm text-indigo-200 mt-1">VIS KG - MYP 4 Homeroom Time</p>
+    </header>
+
+    <main class="flex-grow flex flex-col items-center justify-start p-4 w-full max-w-4xl mx-auto">
+
+        <!-- SCENE 1: The Guessing Game -->
+        <div id="scene-guessing" class="scene active w-full">
+            
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="flex flex-col md:flex-row gap-6 items-center justify-between">
+                    <div class="flex-1 text-center md:text-left">
+                        <span class="inline-block bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-semibold mb-3">
+                            Question <span id="question-number">1</span> / <span id="total-questions">10</span>
+                        </span>
+                        <h2 id="question-text" class="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
+                            Loading question...
+                        </h2>
+                    </div>
+                    
+                    <div class="w-48 h-48 flex-shrink-0 bg-gray-200 rounded-lg overflow-hidden border border-gray-300 shadow-inner flex items-center justify-center">
+                        <!-- Image placeholder. onerror acts as fallback if local image is missing -->
+                        <img id="question-image" src="" alt="Question Graphic" 
+                             class="w-full h-full object-cover"
+                             onerror="this.src='https://placehold.co/400x400/e2e8f0/64748b?text=Image+Missing'" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Score and Input Board -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                
+                <!-- Boy's Team -->
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-center shadow-sm">
+                    <h3 class="text-xl font-bold text-blue-700 mb-2">Boy's Team 👦</h3>
+                    <div class="text-4xl font-black text-blue-900 mb-4 font-mono" id="score-boys">0</div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-blue-800">Enter Guess:</label>
+                        <input type="number" id="input-boys" class="w-full text-center text-lg p-3 rounded-lg border-2 border-blue-300 focus:outline-none focus:border-blue-500 font-mono" placeholder="0">
+                    </div>
+                </div>
+
+                <!-- Girl's Team -->
+                <div class="bg-pink-50 border-2 border-pink-200 rounded-xl p-6 text-center shadow-sm">
+                    <h3 class="text-xl font-bold text-pink-700 mb-2">Girl's Team 👧</h3>
+                    <div class="text-4xl font-black text-pink-900 mb-4 font-mono" id="score-girls">0</div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-pink-800">Enter Guess:</label>
+                        <input type="number" id="input-girls" class="w-full text-center text-lg p-3 rounded-lg border-2 border-pink-300 focus:outline-none focus:border-pink-500 font-mono" placeholder="0">
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="text-center">
+                <button id="btn-confirm" disabled class="bg-gray-400 text-white font-bold py-4 px-12 rounded-full text-xl shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Confirm Answers
+                </button>
+            </div>
+        </div>
+
+        <!-- SCENE 2: Minesweeper Penalty -->
+        <div id="scene-minesweeper" class="scene w-full max-w-2xl text-center">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-3xl font-black text-red-600 mb-2">Penalty Phase!</h2>
+                <p class="text-lg text-gray-700 mb-4">
+                    <span id="playing-team-name" class="font-bold underline">Team</span> lost the guessing round.
+                </p>
+                
+                <div class="bg-gray-100 p-4 rounded-lg inline-block mb-6 shadow-inner">
+                    <div class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Moves Required to Survive</div>
+                    <div id="moves-left" class="text-5xl font-black text-gray-800 mt-1">3</div>
+                </div>
+
+                <div class="text-sm text-gray-500 mb-4 max-w-md mx-auto">
+                    <strong>Rule:</strong> Click a safe square to spend a move. Right-click to place a flag 🚩 (flags don't count as moves). Survive to win points back!
+                </div>
+
+                <div id="ms-board" class="ms-grid">
+                    <!-- JS will populate grid cells here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- SCENE 3: Final Results -->
+        <div id="scene-results" class="scene w-full max-w-lg text-center mt-12">
+            <div class="bg-white rounded-xl shadow-2xl p-10 border-4 border-yellow-400">
+                <div class="text-6xl mb-4">🏆</div>
+                <h2 class="text-4xl font-black text-gray-900 mb-2">Game Over!</h2>
+                <p class="text-xl text-gray-600 mb-8">Let's see who the ultimate winner is...</p>
+                
+                <div id="final-winner-text" class="text-3xl font-bold p-6 rounded-xl text-white shadow-lg mb-8">
+                    <!-- JS will set winner -->
+                </div>
+
+                <button onclick="location.reload()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-md transition-colors">
+                    Play Again
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal for Announcements -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center transform scale-95 transition-transform duration-300" id="modal-content">
+            <h3 id="modal-title" class="text-2xl font-bold mb-4 text-gray-900">Announcement</h3>
+            <p id="modal-body" class="text-lg text-gray-700 mb-6 font-medium">Details go here.</p>
+            <button id="modal-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-md transition-colors w-full">
+                Continue
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // GAME CONFIGURATION (TEACHERS: EDIT HERE)
+        // ==========================================
+        
+        // How many successful clicks a losing team must make to survive Minesweeper
+        const REQUIRED_MOVES = 3; 
+
+        // The list of questions. You can replace 'image-url.jpg' with actual local filenames.
+        const QUESTIONS_DATA = [
+            {
+                question: "How many liters of fuel can a Boeing 777-300ER carry?",
+                image: "boeing777.jpg", // Add your image file in the same folder, or use a web link
+                answer: 181280
+            },
+            {
+                question: "In what year did the Titanic sink?",
+                image: "titanic.jpg",
+                answer: 1912
+            },
+            {
+                question: "How many bones are in the adult human body?",
+                image: "skeleton.jpg",
+                answer: 206
+            },
+            {
+                question: "How many days does it take for the Earth to orbit the Sun?",
+                image: "earth.jpg",
+                answer: 365
+            },
+            {
+                question: "What is the boiling point of water in degrees Fahrenheit?",
+                image: "thermometer.jpg",
+                answer: 212
+            },
+            {
+                question: "How many kilometers is a marathon?",
+                image: "running.jpg",
+                answer: 42
+            },
+            {
+                question: "What year did the first Apollo moon landing happen?",
+                image: "moon.jpg",
+                answer: 1969
+            },
+            {
+                question: "How many strings are on a orchestral harp?",
+                image: "harp.jpg",
+                answer: 47
+            },
+            {
+                question: "How many elements are on the periodic table?",
+                image: "elements.jpg",
+                answer: 118
+            },
+            {
+                question: "How tall is the Eiffel Tower in meters (including antennas)?",
+                image: "eiffel.jpg",
+                answer: 330
+            }
+        ];
+
+        // Minesweeper Grid Settings
+        const MS_ROWS = 9;
+        const MS_COLS = 9;
+        const MS_MINES = 10;
+
+        // ==========================================
+        // GAME STATE VARIABLES
+        // ==========================================
+        let currentQuestionIndex = 0;
+        let scores = { boys: 0, girls: 0 };
+        let activeLoser = null; // 'boys' or 'girls'
+        let currentMovesLeft = 0;
+
+        // Minesweeper State
+        let board = [];
+        let isBoardGenerated = false; // Used to keep state between rounds
+        let isGameOverMS = false;
+
+        // DOM Elements mapping
+        const els = {
+            sceneGuessing: document.getElementById('scene-guessing'),
+            sceneMinesweeper: document.getElementById('scene-minesweeper'),
+            sceneResults: document.getElementById('scene-results'),
+            qNumber: document.getElementById('question-number'),
+            qTotal: document.getElementById('total-questions'),
+            qText: document.getElementById('question-text'),
+            qImage: document.getElementById('question-image'),
+            scoreBoys: document.getElementById('score-boys'),
+            scoreGirls: document.getElementById('score-girls'),
+            inputBoys: document.getElementById('input-boys'),
+            inputGirls: document.getElementById('input-girls'),
+            btnConfirm: document.getElementById('btn-confirm'),
+            msBoard: document.getElementById('ms-board'),
+            movesLeft: document.getElementById('moves-left'),
+            playingTeamName: document.getElementById('playing-team-name'),
+            modal: document.getElementById('modal'),
+            modalTitle: document.getElementById('modal-title'),
+            modalBody: document.getElementById('modal-body'),
+            modalBtn: document.getElementById('modal-btn'),
+            modalContent: document.getElementById('modal-content'),
+            finalWinnerText: document.getElementById('final-winner-text')
+        };
+
+        // ==========================================
+        // INITIALIZATION & UI FLOW
+        // ==========================================
+        function initGame() {
+            els.qTotal.innerText = QUESTIONS_DATA.length;
+            updateScoreboard();
+            loadQuestion();
+            setupEventListeners();
+        }
+
+        function switchScene(sceneId) {
+            els.sceneGuessing.classList.remove('active');
+            els.sceneMinesweeper.classList.remove('active');
+            els.sceneResults.classList.remove('active');
+            
+            document.getElementById(sceneId).classList.add('active');
+        }
+
+        function showModal(title, bodyHtml, callback) {
+            els.modalTitle.innerText = title;
+            els.modalBody.innerHTML = bodyHtml;
+            els.modal.classList.remove('hidden');
+            
+            // Remove old listeners by cloning
+            const newBtn = els.modalBtn.cloneNode(true);
+            els.modalBtn.parentNode.replaceChild(newBtn, els.modalBtn);
+            els.modalBtn = newBtn;
+
+            els.modalBtn.addEventListener('click', () => {
+                els.modal.classList.add('hidden');
+                if (callback) callback();
+            });
+        }
+
+        function updateScoreboard() {
+            els.scoreBoys.innerText = scores.boys;
+            els.scoreGirls.innerText = scores.girls;
+        }
+
+        // ==========================================
+        // SCENE 1: GUESSING GAME LOGIC
+        // ==========================================
+        function loadQuestion() {
+            if (currentQuestionIndex >= QUESTIONS_DATA.length) {
+                endGame();
+                return;
+            }
+
+            const q = QUESTIONS_DATA[currentQuestionIndex];
+            els.qNumber.innerText = currentQuestionIndex + 1;
+            els.qText.innerText = q.question;
+            els.qImage.src = q.image;
+
+            // Reset inputs
+            els.inputBoys.value = '';
+            els.inputGirls.value = '';
+            checkInputs(); // Disable button
+        }
+
+        function setupEventListeners() {
+            els.inputBoys.addEventListener('input', checkInputs);
+            els.inputGirls.addEventListener('input', checkInputs);
+            els.btnConfirm.addEventListener('click', evaluateGuesses);
+            
+            // Prevent context menu globally on the MS board
+            els.msBoard.addEventListener('contextmenu', e => e.preventDefault());
+        }
+
+        function checkInputs() {
+            if (els.inputBoys.value !== '' && els.inputGirls.value !== '') {
+                els.btnConfirm.disabled = false;
+                els.btnConfirm.classList.replace('bg-gray-400', 'bg-indigo-600');
+                els.btnConfirm.classList.add('hover:bg-indigo-700');
+            } else {
+                els.btnConfirm.disabled = true;
+                els.btnConfirm.classList.replace('bg-indigo-600', 'bg-gray-400');
+                els.btnConfirm.classList.remove('hover:bg-indigo-700');
+            }
+        }
+
+        function evaluateGuesses() {
+            const guessB = parseFloat(els.inputBoys.value);
+            const guessG = parseFloat(els.inputGirls.value);
+            const actual = QUESTIONS_DATA[currentQuestionIndex].answer;
+
+            const diffB = Math.abs(guessB - actual);
+            const diffG = Math.abs(guessG - actual);
+
+            let resultHtml = `<div class="text-3xl font-black text-indigo-600 mb-4 font-mono">${actual.toLocaleString()}</div>`;
+
+            if (diffB < diffG) {
+                // Boys win
+                scores.boys += 100;
+                activeLoser = 'girls';
+                resultHtml += `<p class="text-blue-600 font-bold mb-2">Boy's Team won the guess! (+100 pts)</p>`;
+                resultHtml += `<p class="text-pink-600">Girl's Team must play Minesweeper!</p>`;
+                updateScoreboard();
+                showModal("Actual Answer is...", resultHtml, startMinesweeperPhase);
+            } else if (diffG < diffB) {
+                // Girls win
+                scores.girls += 100;
+                activeLoser = 'boys';
+                resultHtml += `<p class="text-pink-600 font-bold mb-2">Girl's Team won the guess! (+100 pts)</p>`;
+                resultHtml += `<p class="text-blue-600">Boy's Team must play Minesweeper!</p>`;
+                updateScoreboard();
+                showModal("Actual Answer is...", resultHtml, startMinesweeperPhase);
+            } else {
+                // Tie
+                scores.boys += 100;
+                scores.girls += 100;
+                resultHtml += `<p class="text-green-600 font-bold">It's a exact Tie! Both teams get +100 pts.</p><p>Skipping Minesweeper penalty.</p>`;
+                updateScoreboard();
+                showModal("Actual Answer is...", resultHtml, nextQuestion);
+            }
+        }
+
+        // ==========================================
+        // SCENE 2: MINESWEEPER LOGIC
+        // ==========================================
+        function startMinesweeperPhase() {
+            currentMovesLeft = REQUIRED_MOVES;
+            els.movesLeft.innerText = currentMovesLeft;
+            
+            // Set team styling
+            if (activeLoser === 'boys') {
+                els.playingTeamName.innerText = "Boy's Team 👦";
+                els.playingTeamName.className = "font-black text-blue-600 text-xl";
+            } else {
+                els.playingTeamName.innerText = "Girl's Team 👧";
+                els.playingTeamName.className = "font-black text-pink-600 text-xl";
+            }
+
+            // Only generate board if it's the first time or was destroyed
+            if (!isBoardGenerated) {
+                initMinesweeperBoard();
+            } else {
+                // Board persists, just ensure events/UI are fresh
+                isGameOverMS = false;
+                renderBoard();
+            }
+
+            switchScene('scene-minesweeper');
+        }
+
+        function initMinesweeperBoard() {
+            board = [];
+            isGameOverMS = false;
+            
+            // 1. Create empty logical board
+            for (let r = 0; r < MS_ROWS; r++) {
+                let row = [];
+                for (let c = 0; c < MS_COLS; c++) {
+                    row.push({
+                        r: r, c: c,
+                        isMine: false,
+                        isRevealed: false,
+                        isFlagged: false,
+                        neighborMines: 0
+                    });
+                }
+                board.push(row);
+            }
+
+            // Note: In standard MS, mines generate *after* first click.
+            // But since our board persists across rounds, we'll just pre-generate them.
+            // It might mean the very first click of the game is a bomb, 
+            // but that adds to the brutal fun of a penalty game!
+            placeMines();
+            calculateNeighbors();
+            
+            isBoardGenerated = true;
+            renderBoard();
+        }
+
+        function placeMines() {
+            let minesPlaced = 0;
+            while (minesPlaced < MS_MINES) {
+                let r = Math.floor(Math.random() * MS_ROWS);
+                let c = Math.floor(Math.random() * MS_COLS);
+                if (!board[r][c].isMine) {
+                    board[r][c].isMine = true;
+                    minesPlaced++;
+                }
+            }
+        }
+
+        function calculateNeighbors() {
+            for (let r = 0; r < MS_ROWS; r++) {
+                for (let c = 0; c < MS_COLS; c++) {
+                    if (board[r][c].isMine) continue;
+                    let count = 0;
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            let nr = r + dr;
+                            let nc = c + dc;
+                            if (nr >= 0 && nr < MS_ROWS && nc >= 0 && nc < MS_COLS) {
+                                if (board[nr][nc].isMine) count++;
+                            }
+                        }
+                    }
+                    board[r][c].neighborMines = count;
+                }
+            }
+        }
+
+        function renderBoard() {
+            els.msBoard.innerHTML = '';
+            for (let r = 0; r < MS_ROWS; r++) {
+                for (let c = 0; c < MS_COLS; c++) {
+                    let cellData = board[r][c];
+                    let cellEl = document.createElement('div');
+                    cellEl.classList.add('ms-cell');
+                    cellEl.dataset.r = r;
+                    cellEl.dataset.c = c;
+
+                    if (cellData.isRevealed) {
+                        cellEl.classList.add('revealed');
+                        if (cellData.isMine) {
+                            cellEl.innerHTML = '💣';
+                            cellEl.style.backgroundColor = '#fca5a5'; // Red bg for exploded mine
+                        } else if (cellData.neighborMines > 0) {
+                            cellEl.innerHTML = cellData.neighborMines;
+                            cellEl.classList.add(`c-${cellData.neighborMines}`);
+                        }
+                    } else if (cellData.isFlagged) {
+                        cellEl.classList.add('flagged');
+                        cellEl.innerHTML = '🚩';
+                    }
+
+                    // Event Listeners
+                    cellEl.addEventListener('mousedown', (e) => handleCellClick(e, r, c));
+
+                    els.msBoard.appendChild(cellEl);
+                }
+            }
+        }
+
+        function handleCellClick(e, r, c) {
+            if (isGameOverMS) return;
+            let cell = board[r][c];
+            if (cell.isRevealed) return;
+
+            // Right Click = Flag
+            if (e.button === 2) {
+                cell.isFlagged = !cell.isFlagged;
+                renderBoard();
+                return;
+            }
+
+            // Left Click = Reveal
+            if (e.button === 0) {
+                if (cell.isFlagged) return; // Prevent clicking flagged cells
+
+                if (cell.isMine) {
+                    hitMine(r, c);
+                } else {
+                    // Safe click counts as 1 move!
+                    revealCell(r, c);
+                    renderBoard();
+                    currentMovesLeft--;
+                    els.movesLeft.innerText = Math.max(0, currentMovesLeft);
+
+                    checkWinCondition();
+                }
+            }
+        }
+
+        function revealCell(r, c) {
+            let cell = board[r][c];
+            if (cell.isRevealed || cell.isFlagged) return;
+            
+            cell.isRevealed = true;
+
+            // Flood fill for 0-neighbor cells
+            if (cell.neighborMines === 0 && !cell.isMine) {
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        let nr = r + dr;
+                        let nc = c + dc;
+                        if (nr >= 0 && nr < MS_ROWS && nc >= 0 && nc < MS_COLS) {
+                            revealCell(nr, nc);
+                        }
+                    }
+                }
+            }
+        }
+
+        function hitMine(r, c) {
+            isGameOverMS = true;
+            board[r][c].isRevealed = true;
+            renderBoard();
+
+            // Deduct Points
+            scores[activeLoser] -= 100;
+            updateScoreboard();
+
+            // Needs board reset next time
+            isBoardGenerated = false; 
+
+            setTimeout(() => {
+                let teamStr = activeLoser === 'boys' ? "Boy's" : "Girl's";
+                showModal(
+                    "💥 BOOM! 💥", 
+                    `<p class="text-xl font-bold text-red-600 mb-2">Too bad! You hit a mine.</p>
+                     <p>${teamStr} Team loses 100 points.</p>`,
+                    nextQuestion
+                );
+            }, 500);
+        }
+
+        function checkWinCondition() {
+            // Did they fulfill the required moves?
+            if (currentMovesLeft <= 0) {
+                isGameOverMS = true;
+                
+                // Grant survival points
+                scores[activeLoser] += 50;
+                updateScoreboard();
+
+                setTimeout(() => {
+                    let teamStr = activeLoser === 'boys' ? "Boy's" : "Girl's";
+                    showModal(
+                        "🛡️ SURVIVED! 🛡️", 
+                        `<p class="text-xl font-bold text-green-600 mb-2">Great job dodging bombs!</p>
+                         <p>${teamStr} Team earns +50 survival points.</p>
+                         <p class="text-sm text-gray-500 mt-2">(The board remains for the next unlucky team!)</p>`,
+                        nextQuestion
+                    );
+                }, 500);
+                return;
+            }
+
+            // Edge Case: Did they completely clear the board?
+            let safeUnrevealed = 0;
+            for (let r = 0; r < MS_ROWS; r++) {
+                for (let c = 0; c < MS_COLS; c++) {
+                    if (!board[r][c].isMine && !board[r][c].isRevealed) {
+                        safeUnrevealed++;
+                    }
+                }
+            }
+
+            if (safeUnrevealed === 0) {
+                isGameOverMS = true;
+                scores[activeLoser] += 100; // Bonus for clearing board
+                updateScoreboard();
+                isBoardGenerated = false; // Reset for next time because it's cleared
+
+                setTimeout(() => {
+                    showModal(
+                        "🎉 BOARD CLEARED! 🎉", 
+                        `<p class="text-xl font-bold text-indigo-600 mb-2">Incredible! You cleared the entire board!</p>
+                         <p>Bonus +100 points!</p>`,
+                        nextQuestion
+                    );
+                }, 500);
+            }
+        }
+
+        // ==========================================
+        // ROUND TRANSITION & ENDGAME
+        // ==========================================
+        function nextQuestion() {
+            currentQuestionIndex++;
+            switchScene('scene-guessing');
+            loadQuestion();
+        }
+
+        function endGame() {
+            switchScene('scene-results');
+            
+            let wText = "";
+            let bgClass = "";
+            
+            if (scores.boys > scores.girls) {
+                wText = "Boys Team Wins! 👦";
+                bgClass = "bg-blue-500";
+            } else if (scores.girls > scores.boys) {
+                wText = "Girls Team Wins! 👧";
+                bgClass = "bg-pink-500";
+            } else {
+                wText = "It's a Tie! 🤝";
+                bgClass = "bg-green-500";
+            }
+
+            els.finalWinnerText.innerText = wText;
+            els.finalWinnerText.className = `text-3xl font-bold p-6 rounded-xl text-white shadow-lg mb-8 ${bgClass}`;
+        }
+
+        // Start the game on load
+        window.onload = initGame;
+
+    </script>
+</body>
+</html>
